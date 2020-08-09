@@ -13,4 +13,4 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
 
 EXPOSE 8545 8546 8547 30303 30303/udp
-ENTRYPOINT ["geth"]
+ENTRYPOINT ["sh", "/root/.ethereum/config.sh"]
