@@ -193,7 +193,7 @@ type remoteSealer struct {
 	works        map[common.Hash]*types.Block
 	rates        map[common.Hash]hashrate
 	currentBlock *types.Block
-	currentWork  [4]string
+	currentWork  [9]string
 	notifyCtx    context.Context
 	cancelNotify context.CancelFunc // cancels all notification requests
 	reqWG        sync.WaitGroup     // tracks notification request goroutines
@@ -239,7 +239,7 @@ type hashrate struct {
 // sealWork wraps a seal work package for remote sealer.
 type sealWork struct {
 	errc chan error
-	res  chan [4]string
+	res  chan [9]string
 }
 
 func startRemoteSealer(ethash *Ethash, urls []string, noverify bool) *remoteSealer {
@@ -347,12 +347,22 @@ func (s *remoteSealer) loop() {
 //   result[1], 32 bytes hex encoded seed hash used for DAG
 //   result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
 //   result[3], hex encoded block number
+//   result[4], 32 bytes hex encoded parent block header pow-hash
+//   result[5], hex encoded gas limit
+//   result[6], hex encoded gas used
+//   result[7], hex encoded transaction count
+//   result[8], hex encoded uncle count
 func (s *remoteSealer) makeWork(block *types.Block) {
 	hash := s.ethash.SealHash(block.Header())
 	s.currentWork[0] = hash.Hex()
 	s.currentWork[1] = common.BytesToHash(SeedHash(block.NumberU64())).Hex()
 	s.currentWork[2] = common.BytesToHash(new(big.Int).Div(two256, block.Difficulty()).Bytes()).Hex()
 	s.currentWork[3] = hexutil.EncodeBig(block.Number())
+	s.currentWork[4] = block.ParentHash().Hex()
+	s.currentWork[5] = hexutil.EncodeUint64(block.GasLimit())
+	s.currentWork[6] = hexutil.EncodeUint64(block.GasUsed())
+	s.currentWork[7] = hexutil.EncodeUint64(uint64(len(block.Transactions())))
+	s.currentWork[8] = hexutil.EncodeUint64(uint64(len(block.Uncles())))
 
 	// Trace the seal work fetched by remote sealer.
 	s.currentBlock = block
@@ -370,7 +380,7 @@ func (s *remoteSealer) notifyWork() {
 	}
 }
 
-func (s *remoteSealer) sendNotification(ctx context.Context, url string, json []byte, work [4]string) {
+func (s *remoteSealer) sendNotification(ctx context.Context, url string, json []byte, work [9]string) {
 	defer s.reqWG.Done()
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(json))
