@@ -601,7 +601,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		peers = append(peers, peer)
 	}
 	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
-	pm.BroadcastBlock(chain[0], true /*propagate*/)
+	pm.BroadcastBlock(chain[0], true /*propagate*/, false)
 
 	errCh := make(chan error, totalPeers)
 	doneCh := make(chan struct{}, totalPeers)
