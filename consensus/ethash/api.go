@@ -180,8 +180,8 @@ func (api *API) SubmitWorkDetail(nonce types.BlockNonce, hash, digest common.Has
 		nonce:       nonce,
 		mixDigest:   digest,
 		hash:        hash,
-		errc:        errc,
 		extraNonce:  extraNonce,
+		errc:        errc,
 		blockHashCh: blockHashCh,
 	}:
 	case <-api.ethash.remote.exitCh:
