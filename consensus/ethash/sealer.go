@@ -452,7 +452,8 @@ func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash,
 		// if err := s.ethash.verifySeal(nil, header, true); err != nil {
 		// 	s.ethash.config.Log.Warn("Invalid proof-of-work submitted", "sealhash", sealhash, "elapsed", common.PrettyDuration(time.Since(start)), "err", err)
 		// 	return false
-		if ethashErr := s.ethash.verifySeal(nil, header, true); ethashErr != nil {
+		// if ethashErr := s.ethash.verifySeal(nil, header, true); ethashErr != nil {
+		if ethashErr := s.ethash.verifySeal(nil, header, false); ethashErr != nil {
 			err = errors.New("Invalid proof-of-work submitted")
 			s.ethash.config.Log.Warn(err.Error(), "sealhash", sealhash, "elapsed", common.PrettyDuration(time.Since(start)), "err", ethashErr)
 			return
