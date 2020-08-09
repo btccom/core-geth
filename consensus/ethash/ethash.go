@@ -228,7 +228,7 @@ func (c *cache) generate(dir string, limit int, lock bool, test bool) {
 			size = 1024
 		}
 		// If we don't store anything on disk, generate and return.
-		if dir == "" {
+		if dir == "" || limit <= 0 {
 			c.cache = make([]uint32, size/4)
 			generateCache(c.cache, c.epoch, seed)
 			return
@@ -310,7 +310,7 @@ func (d *dataset) generate(dir string, limit int, lock bool, test bool) {
 			dsize = 32 * 1024
 		}
 		// If we don't store anything on disk, generate and return
-		if dir == "" {
+		if dir == "" || limit <= 0 {
 			cache := make([]uint32, csize/4)
 			generateCache(cache, d.epoch, seed)
 
