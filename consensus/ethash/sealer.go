@@ -223,7 +223,8 @@ type mineResult struct {
 	mixDigest common.Hash
 	hash      common.Hash
 
-	errc chan error
+	errc        chan error
+	blockHashCh chan common.Hash
 }
 
 // hashrate wraps the hash rate submitted by the remote sealer.
@@ -293,10 +294,14 @@ func (s *remoteSealer) loop() {
 
 		case result := <-s.submitWorkCh:
 			// Verify submitted PoW solution based on maintained mining blocks.
-			if s.submitWork(result.nonce, result.mixDigest, result.hash) {
-				result.errc <- nil
+			// if s.submitWork(result.nonce, result.mixDigest, result.hash) {
+			// 	result.errc <- nil
+			blockHash, err := s.submitWork(result.nonce, result.mixDigest, result.hash)
+			if err == nil {
+				result.blockHashCh <- blockHash
 			} else {
-				result.errc <- errInvalidSealResult
+				// result.errc <- errInvalidSealResult
+				result.errc <- err
 			}
 
 		case result := <-s.submitRateCh:
@@ -387,19 +392,19 @@ func (s *remoteSealer) sendNotification(ctx context.Context, url string, json []
 	}
 }
 
-// submitWork verifies the submitted pow solution, returning
-// whether the solution was accepted or not (not can be both a bad pow as well as
-// any other error, like no pending work or stale mining result).
-func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash, sealhash common.Hash) bool {
+// its block hash when success or an error when failed.
+func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash, sealhash common.Hash) (blockHash common.Hash, err error) {
 	if s.currentBlock == nil {
-		s.ethash.config.Log.Error("Pending work without block", "sealhash", sealhash)
-		return false
+		err = errors.New("Pending work without block")
+		s.ethash.config.Log.Error(err.Error(), "sealhash", sealhash)
+		return
 	}
 	// Make sure the work submitted is present
 	block := s.works[sealhash]
 	if block == nil {
-		s.ethash.config.Log.Warn("Work submitted but none pending", "sealhash", sealhash, "curnumber", s.currentBlock.NumberU64())
-		return false
+		err = errors.New("Work submitted but none pending")
+		s.ethash.config.Log.Warn(err.Error(), "sealhash", sealhash, "curnumber", s.currentBlock.NumberU64())
+		return
 	}
 	// Verify the correctness of submitted result.
 	header := block.Header()
@@ -408,15 +413,22 @@ func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash,
 
 	start := time.Now()
 	if !s.noverify {
-		if err := s.ethash.verifySeal(nil, header, true); err != nil {
-			s.ethash.config.Log.Warn("Invalid proof-of-work submitted", "sealhash", sealhash, "elapsed", common.PrettyDuration(time.Since(start)), "err", err)
-			return false
+		// if err := s.ethash.verifySeal(nil, header, true); err != nil {
+		// 	s.ethash.config.Log.Warn("Invalid proof-of-work submitted", "sealhash", sealhash, "elapsed", common.PrettyDuration(time.Since(start)), "err", err)
+		// 	return false
+		if ethashErr := s.ethash.verifySeal(nil, header, true); ethashErr != nil {
+			err = errors.New("Invalid proof-of-work submitted")
+			s.ethash.config.Log.Warn(err.Error(), "sealhash", sealhash, "elapsed", common.PrettyDuration(time.Since(start)), "err", ethashErr)
+			return
 		}
 	}
 	// Make sure the result channel is assigned.
 	if s.results == nil {
-		s.ethash.config.Log.Warn("Ethash result channel is empty, submitted mining result is rejected")
-		return false
+		// s.ethash.config.Log.Warn("Ethash result channel is empty, submitted mining result is rejected")
+		// return false
+		err = errors.New("Ethash result channel is empty, submitted mining result is rejected")
+		s.ethash.config.Log.Warn(err.Error())
+		return
 	}
 	s.ethash.config.Log.Trace("Verified correct proof-of-work", "sealhash", sealhash, "elapsed", common.PrettyDuration(time.Since(start)))
 
@@ -427,14 +439,22 @@ func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash,
 	if solution.NumberU64()+staleThreshold > s.currentBlock.NumberU64() {
 		select {
 		case s.results <- solution:
+			blockHash = solution.Hash()
 			s.ethash.config.Log.Debug("Work submitted is acceptable", "number", solution.NumberU64(), "sealhash", sealhash, "hash", solution.Hash())
-			return true
+			return
 		default:
-			s.ethash.config.Log.Warn("Sealing result is not read by miner", "mode", "remote", "sealhash", sealhash)
-			return false
+			// s.ethash.config.Log.Warn("Sealing result is not read by miner", "mode", "remote", "sealhash", sealhash)
+			// return
+			err = errors.New("Sealing result is not read by miner")
+			s.ethash.config.Log.Warn(err.Error(), "mode", "remote", "sealhash", sealhash)
+			return
 		}
 	}
 	// The submitted block is too old to accept, drop it.
-	s.ethash.config.Log.Warn("Work submitted is too old", "number", solution.NumberU64(), "sealhash", sealhash, "hash", solution.Hash())
-	return false
+	// s.ethash.config.Log.Warn("Work submitted is too old", "number", solution.NumberU64(), "sealhash", sealhash, "hash", solution.Hash())
+	// return false
+
+	err = errors.New("Work submitted is too old")
+	s.ethash.config.Log.Warn(err.Error(), "number", solution.NumberU64(), "sealhash", sealhash, "hash", solution.Hash())
+	return
 }

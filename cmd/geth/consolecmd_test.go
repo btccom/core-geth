@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 ethash:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 shh:1.0 txpool:1.0 web3:1.0"
-	httpAPIs = "eth:1.0 net:1.0 rpc:1.0 web3:1.0"
+	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 ethash:1.0 miner:1.0 net:1.0 parity:1.0 personal:1.0 rpc:1.0 shh:1.0 txpool:1.0 web3:1.0"
+	httpAPIs = "eth:1.0 net:1.0 parity:1.0 rpc:1.0 web3:1.0"
 )
 
 // TestConsoleCmdNetworkIdentities tests network identity variables at runtime for a geth instance.

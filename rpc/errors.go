@@ -72,3 +72,26 @@ type invalidParamsError struct{ message string }
 func (e *invalidParamsError) ErrorCode() int { return -32602 }
 
 func (e *invalidParamsError) Error() string { return e.message }
+
+// logic error, callback returned an error
+type callbackError struct{ message string }
+
+func (e *callbackError) ErrorCode() int { return -32000 }
+
+func (e *callbackError) Error() string { return e.message }
+
+// issued when a request is received after the server is issued to stop.
+type shutdownError struct{}
+
+func (e *shutdownError) ErrorCode() int { return -32000 }
+
+func (e *shutdownError) Error() string { return "server is shutting down" }
+
+// CannotSubmitWorkError cannot submit a POW work
+type CannotSubmitWorkError struct{ data string }
+
+func (e *CannotSubmitWorkError) ErrorCode() int { return -32005 }
+
+func (e *CannotSubmitWorkError) Error() string { return "Cannot submit work." }
+
+func (e *CannotSubmitWorkError) ErrorData() interface{} { return e.data }
