@@ -23,4 +23,4 @@ func (e cannotSubmitWorkError) ErrorCode() int { return -32005 }
 
 func (e cannotSubmitWorkError) Error() string { return "Cannot submit work." }
 
-func (e cannotSubmitWorkError) ErrorInfo() interface{} { return e.info }
+func (e cannotSubmitWorkError) ErrorInfo() string { return e.info }

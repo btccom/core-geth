@@ -50,9 +50,9 @@ type DataError interface {
 // ErrorWithInfo wraps RPC errors with extra information, which contain an error code, a message
 // and an extra information about the error through info.
 type ErrorWithInfo interface {
-	Error() string          // returns the message
-	ErrorCode() int         // returns the code
-	ErrorInfo() interface{} // returns the extra information
+	Error() string     // returns the message
+	ErrorCode() int    // returns the code
+	ErrorInfo() string // returns the extra information
 }
 
 // ServerCodec implements reading, parsing and writing RPC messages for the server side of
