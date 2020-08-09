@@ -185,6 +185,12 @@ type Block struct {
 	ReceivedFrom interface{}
 }
 
+// SealResult is the result of the realing work
+type SealResult struct {
+	Block    *Block
+	SealHash *common.Hash
+}
+
 // DeprecatedTd is an old relic for extracting the TD of a block. It is in the
 // code solely to facilitate upgrading the database from the old format to the
 // new, after which it should be deleted. Do not use!
