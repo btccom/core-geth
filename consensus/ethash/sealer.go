@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	crand "crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"math"
@@ -224,7 +223,7 @@ type mineResult struct {
 	nonce      types.BlockNonce
 	mixDigest  common.Hash
 	hash       common.Hash
-	extraNonce *uint32
+	extraNonce []byte
 
 	errc        chan error
 	blockHashCh chan common.Hash
@@ -366,7 +365,7 @@ func (s *remoteSealer) makeWork(block *types.Block) {
 	s.currentWork[7] = hexutil.EncodeUint64(uint64(len(block.Transactions())))
 	s.currentWork[8] = hexutil.EncodeUint64(uint64(len(block.Uncles())))
 
-	header.Extra = append(header.Extra, make([]byte, 4)...)
+	extra := append(header.Extra, make([]byte, 4)...)
 	encoded, err := rlp.EncodeToBytes([]interface{}{
 		header.ParentHash,
 		header.UncleHash,
@@ -380,7 +379,7 @@ func (s *remoteSealer) makeWork(block *types.Block) {
 		header.GasLimit,
 		header.GasUsed,
 		header.Time,
-		header.Extra,
+		extra,
 	})
 	if err == nil {
 		s.currentWork[9] = hexutil.Encode(encoded)
@@ -426,7 +425,7 @@ func (s *remoteSealer) sendNotification(ctx context.Context, url string, json []
 
 // submitWork verifies the submitted pow solution, returning
 // its block hash when success or an error when failed.
-func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash, sealhash common.Hash, extraNonce *uint32) (blockHash common.Hash, err error) {
+func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash, sealhash common.Hash, extraNonce []byte) (blockHash common.Hash, err error) {
 	if s.currentBlock == nil {
 		err = errors.New("Pending work without block")
 		s.ethash.config.Log.Error(err.Error(), "sealhash", sealhash)
@@ -443,11 +442,7 @@ func (s *remoteSealer) submitWork(nonce types.BlockNonce, mixDigest common.Hash,
 	header := block.Header()
 	header.Nonce = nonce
 	header.MixDigest = mixDigest
-	if extraNonce != nil {
-		buf := make([]byte, 4)
-		binary.BigEndian.PutUint32(buf, *extraNonce)
-		header.Extra = append(header.Extra, buf...)
-	}
+	header.Extra = append(header.Extra, extraNonce...)
 
 	start := time.Now()
 	if !s.noverify {

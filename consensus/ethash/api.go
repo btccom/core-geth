@@ -70,9 +70,18 @@ func (api *API) GetWork() ([10]string, error) {
 // SubmitWork can be used by external miner to submit their POW solution.
 // It returns an indication if the work was accepted.
 // Note either an invalid solution, a stale work a non-existent work will return false.
-func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash, extraNonce *uint32) bool {
+func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash, extraNonceStr *string) bool {
 	if api.ethash.remote == nil {
 		return false
+	}
+
+	var extraNonce []byte
+	if extraNonceStr != nil {
+		var err error
+		extraNonce, err = hexutil.Decode(*extraNonceStr)
+		if err != nil {
+			return false
+		}
 	}
 
 	var errc = make(chan error, 1)
@@ -115,10 +124,20 @@ func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash, ext
 //
 // See the original proposal here: <https://github.com/paritytech/parity-ethereum/pull/9404>
 //
-func (api *API) SubmitWorkDetail(nonce types.BlockNonce, hash, digest common.Hash, extraNonce *uint32) (blockHash common.Hash, err rpc.ErrorWithInfo) {
+func (api *API) SubmitWorkDetail(nonce types.BlockNonce, hash, digest common.Hash, extraNonceStr *string) (blockHash common.Hash, err rpc.ErrorWithInfo) {
 	if api.ethash.remote == nil {
 		err = cannotSubmitWorkError{"not supported"}
 		return
+	}
+
+	var extraNonce []byte
+	if extraNonceStr != nil {
+		var errorDecode error
+		extraNonce, errorDecode = hexutil.Decode(*extraNonceStr)
+		if errorDecode != nil {
+			err = cannotSubmitWorkError{"invalid extra nonce"}
+			return
+		}
 	}
 
 	var errc = make(chan error, 1)
