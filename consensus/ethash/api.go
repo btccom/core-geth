@@ -44,32 +44,33 @@ type API struct {
 //   result[6], hex encoded gas used
 //   result[7], hex encoded transaction count
 //   result[8], hex encoded uncle count
-func (api *API) GetWork() ([9]string, error) {
+//   result[9], RLP encoded header with additonal empty extra data bytes
+func (api *API) GetWork() ([10]string, error) {
 	if api.ethash.remote == nil {
-		return [9]string{}, errors.New("not supported")
+		return [10]string{}, errors.New("not supported")
 	}
 
 	var (
-		workCh = make(chan [9]string, 1)
+		workCh = make(chan [10]string, 1)
 		errc   = make(chan error, 1)
 	)
 	select {
 	case api.ethash.remote.fetchWorkCh <- &sealWork{errc: errc, res: workCh}:
 	case <-api.ethash.remote.exitCh:
-		return [9]string{}, errEthashStopped
+		return [10]string{}, errEthashStopped
 	}
 	select {
 	case work := <-workCh:
 		return work, nil
 	case err := <-errc:
-		return [9]string{}, err
+		return [10]string{}, err
 	}
 }
 
 // SubmitWork can be used by external miner to submit their POW solution.
 // It returns an indication if the work was accepted.
 // Note either an invalid solution, a stale work a non-existent work will return false.
-func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash) bool {
+func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash, extraNonce *uint32) bool {
 	if api.ethash.remote == nil {
 		return false
 	}
@@ -81,6 +82,7 @@ func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash) boo
 		nonce:     nonce,
 		mixDigest: digest,
 		hash:      hash,
+		extraNonce:  extraNonce,
 		errc:      errc,
 		blockHashCh: blockHashCh,
 	}:
@@ -113,7 +115,7 @@ func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash) boo
 //
 // See the original proposal here: <https://github.com/paritytech/parity-ethereum/pull/9404>
 //
-func (api *API) SubmitWorkDetail(nonce types.BlockNonce, hash, digest common.Hash) (blockHash common.Hash, err rpc.ErrorWithInfo) {
+func (api *API) SubmitWorkDetail(nonce types.BlockNonce, hash, digest common.Hash, extraNonce *uint32) (blockHash common.Hash, err rpc.ErrorWithInfo) {
 	if api.ethash.remote == nil {
 		err = cannotSubmitWorkError{"not supported"}
 		return
@@ -128,6 +130,7 @@ func (api *API) SubmitWorkDetail(nonce types.BlockNonce, hash, digest common.Has
 		mixDigest:   digest,
 		hash:        hash,
 		errc:        errc,
+		extraNonce:  extraNonce,
 		blockHashCh: blockHashCh,
 	}:
 	case <-api.ethash.remote.exitCh:
