@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 var errEthashStopped = errors.New("ethash stopped")
@@ -69,18 +70,73 @@ func (api *API) SubmitWork(nonce types.BlockNonce, hash, digest common.Hash) boo
 	}
 
 	var errc = make(chan error, 1)
+	var blockHashCh = make(chan common.Hash, 1)
 	select {
 	case api.ethash.remote.submitWorkCh <- &mineResult{
 		nonce:     nonce,
 		mixDigest: digest,
 		hash:      hash,
 		errc:      errc,
+		blockHashCh: blockHashCh,
 	}:
 	case <-api.ethash.remote.exitCh:
 		return false
 	}
-	err := <-errc
-	return err == nil
+	select {
+	case <-errc:
+		return false
+	case <-blockHashCh:
+		return true
+	}
+}
+
+// SubmitWorkDetail is similar to eth_submitWork but will return the block hash on success,
+// and return an explicit error message on failure.
+//
+// Params (same as `eth_submitWork`):
+//   [
+//       "<nonce>",
+//       "<pow_hash>",
+//       "<mix_hash>"
+//   ]
+//
+// Result on success:
+//   "block_hash"
+//
+// Error on failure:
+//   {code: -32005, message: "Cannot submit work.", data: "<reason for submission failure>"}
+//
+// See the original proposal here: <https://github.com/paritytech/parity-ethereum/pull/9404>
+//
+func (api *API) SubmitWorkDetail(nonce types.BlockNonce, hash, digest common.Hash) (blockHash common.Hash, err rpc.ErrorWithInfo) {
+	if api.ethash.remote == nil {
+		err = cannotSubmitWorkError{"not supported"}
+		return
+	}
+
+	var errc = make(chan error, 1)
+	var blockHashCh = make(chan common.Hash, 1)
+
+	select {
+	case api.ethash.remote.submitWorkCh <- &mineResult{
+		nonce:       nonce,
+		mixDigest:   digest,
+		hash:        hash,
+		errc:        errc,
+		blockHashCh: blockHashCh,
+	}:
+	case <-api.ethash.remote.exitCh:
+		err = cannotSubmitWorkError{errEthashStopped.Error()}
+		return
+	}
+
+	select {
+	case submitErr := <-errc:
+		err = cannotSubmitWorkError{submitErr.Error()}
+		return
+	case blockHash = <-blockHashCh:
+		return
+	}
 }
 
 // SubmitHashrate can be used for remote miners to submit their hash rate.
