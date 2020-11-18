@@ -394,6 +394,7 @@ func (s *remoteSealer) makeWork(block *types.Block) {
 // new work to be processed.
 func (s *remoteSealer) notifyWork() {
 	work := s.currentWork
+	s.ethash.workFeed.Send(work)
 	blob, _ := json.Marshal(work)
 	s.reqWG.Add(len(s.notifyURLs))
 	for _, url := range s.notifyURLs {
